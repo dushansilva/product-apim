@@ -37,6 +37,7 @@
 
     <modules>
         <module>4.1.1-registering-an-application</module>
+        <module>4.1.7-subscribe-to-an-api</module>
     </modules>
 
     <dependencyManagement>
