@@ -67,9 +67,19 @@ public class ApiSubscriptionTestCases extends ScenarioTestBase {
     private UserManagementClient userManagementClient;
     private UserManagementClient tenantUserManagementClient;
 
+    private String SUBSCRIBER_USERNAME = "user";
+    private String SUBSCRIBER_PASSWORD = "Wso2123!";
+
+    private String TENANT_SUBSCRIBER_USERNAME = "tenantUser";
+    private String TENANT_SUBSCRIBER_PASSWORD = "Wso2123!";
+
+    private static final String CREATOR_PUBLISHER_USERNAME = "creatorPublisherUser";
+    private static final String CREATOR_PUBLISHER_PASSWORD = "Wso2123!";
+
+    private static final String TENANT_CREATOR_PUBLISHER_USERNAME = "tenantCreatorPublisherUser";
+    private static final String TENANT_CREATOR_PUBLISHER_PASSWORD = "Wso2123!";
     private String tempUsername = "user";
-    private String tempPassword = "Wso2user123!";
-    private final String SUBSCRIBER = "Subscriber";
+    private String tempPassword = "Wso2123!";
 
     @BeforeClass(alwaysRun = true)
     public void init() throws APIManagerIntegrationTestException {
@@ -90,11 +100,22 @@ public class ApiSubscriptionTestCases extends ScenarioTestBase {
 
         try {
             setKeyStoreProperties();
+            addTenantAndActivate(TENANT_DOMAIN, TENANT_ADMIN_USERNAME, TENANT_ADMIN_PW);
+            tenantUserManagementClient = new UserManagementClient(KEY_MANAGER_URL, TENANT_LOGIN_ADMIN_USERNAME,
+                    TENANT_ADMIN_PW);
+            createUserWithPublisherAndCreatorRole(CREATOR_PUBLISHER_USERNAME, CREATOR_PUBLISHER_PASSWORD,
+                    ADMIN_LOGIN_USERNAME, ADMIN_LOGIN_PW);
+            createUserWithPublisherAndCreatorRole(TENANT_CREATOR_PUBLISHER_USERNAME, TENANT_CREATOR_PUBLISHER_PASSWORD,
+                    TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
+
+            createUserWithSubscriberRole(SUBSCRIBER_USERNAME, SUBSCRIBER_PASSWORD, ADMIN_LOGIN_USERNAME, ADMIN_LOGIN_PW);
+            createUserWithSubscriberRole(TENANT_SUBSCRIBER_USERNAME, TENANT_SUBSCRIBER_PASSWORD, TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
+
             apiPublisherRestClient = new APIPublisherRestClient(publisherURL);
-            apiPublisherRestClient.login(ADMIN_LOGIN_USERNAME, ADMIN_LOGIN_USERNAME);
+            apiPublisherRestClient.login(CREATOR_PUBLISHER_USERNAME, CREATOR_PUBLISHER_PASSWORD);
 
             apiStoreRestClient = new APIStoreRestClient(storeURL);
-            apiStoreRestClient.login(ADMIN_LOGIN_USERNAME, ADMIN_LOGIN_PW);
+            apiStoreRestClient.login(SUBSCRIBER_USERNAME, SUBSCRIBER_PASSWORD);
 
             userManagementClient = new UserManagementClient(KEY_MANAGER_URL, ADMIN_LOGIN_USERNAME, ADMIN_LOGIN_PW);
             AuthenticatorClient authenticatorClient = new AuthenticatorClient(KEY_MANAGER_URL);
@@ -102,14 +123,14 @@ public class ApiSubscriptionTestCases extends ScenarioTestBase {
 
             tenantManagementClient = new TenantManagementServiceClient(KEY_MANAGER_URL, sessionCookie);
 
-            addTenantAndActivate(TENANT_DOMAIN, TENANT_ADMIN_USERNAME, TENANT_ADMIN_PW);
-            tenantUserManagementClient = new UserManagementClient(KEY_MANAGER_URL, TENANT_LOGIN_ADMIN_USERNAME,
-                    TENANT_ADMIN_PW);
-
             tenantApiPublisherRestClient = new APIPublisherRestClient(publisherURL);
-            tenantApiPublisherRestClient.login(TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
+            String tenantApiCreatorLoginUsername = TENANT_CREATOR_PUBLISHER_USERNAME + "@" + TENANT_DOMAIN;
+            tenantApiPublisherRestClient.login(tenantApiCreatorLoginUsername, TENANT_CREATOR_PUBLISHER_PASSWORD);
+
+            String tenantApiSubscriberLoginUsername = TENANT_SUBSCRIBER_USERNAME + "@" + TENANT_DOMAIN;
+
             tenantApiStoreRestClient = new APIStoreRestClient(storeURL);
-            tenantApiStoreRestClient.login(TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
+            tenantApiStoreRestClient.login(tenantApiSubscriberLoginUsername, TENANT_SUBSCRIBER_PASSWORD);
 
         } catch (Exception e) {
             throw new APIManagerIntegrationTestException("Failed when initialization of test", e);
@@ -120,45 +141,46 @@ public class ApiSubscriptionTestCases extends ScenarioTestBase {
     public void testSubscribeToApiFromAppName() throws APIManagerIntegrationTestException,
             UnsupportedEncodingException {
 
-        apiProvider = "admin";
-        apiName = "PhoneVerificationOptionalAdd";
-        apiContext = "/phoneverifyOptionaladd";
+        apiProvider = CREATOR_PUBLISHER_USERNAME;
+        apiName = "testSubscribeToApiFromAppNameApi";
+        apiContext = "/testSubscribeToApiFromAppName";
         apiVersion = "1.0.0";
         tierCollection = "Silver";
-        applicationName = "app1";
+        applicationName = "testSubscribeToApiFromAppNameApp";
 
         if (isApplicationCreated(applicationName, apiStoreRestClient)) {
-            verifyResponse(deleteApplication(applicationName,apiStoreRestClient));
-        }
-        if (isApplicationCreated(applicationName, tenantApiStoreRestClient)) {
-            verifyResponse(deleteApplication(applicationName,tenantApiStoreRestClient));
+            verifyResponse(deleteApplication(applicationName, apiStoreRestClient));
         }
 
-        if (isApiCreated(apiName,apiPublisherRestClient)) {
-            verifyResponse(deleteApi(apiName, apiVersion, apiProvider,apiPublisherRestClient));
+        if (isApplicationCreated(applicationName, tenantApiStoreRestClient)) {
+            verifyResponse(deleteApplication(applicationName, tenantApiStoreRestClient));
+        }
+
+        if (isApiCreated(apiName, apiPublisherRestClient)) {
+            verifyResponse(deleteApi(apiName, apiVersion, apiProvider, apiPublisherRestClient));
         }
 
         verifyResponse(createApi());
         verifyResponse(publishApi(apiProvider, apiName, apiVersion, apiPublisherRestClient));
-        assertTrue(isApiCreated(apiName,apiPublisherRestClient), "Api was not created");
+        assertTrue(isApiCreated(apiName, apiPublisherRestClient), "Api was not created");
 
         verifyResponse(createApplication(applicationName, "",
                 APIMIntegrationConstants.APPLICATION_TIER.UNLIMITED, apiStoreRestClient));
         assertTrue(isApplicationCreated(applicationName, apiStoreRestClient));
 
-        verifyResponse(subscribeToApplication(apiName, apiVersion, apiProvider, applicationName, tenantApiStoreRestClient));
+        verifyResponse(subscribeToApplication(apiName, apiVersion, apiProvider, applicationName, apiStoreRestClient));
         assertTrue(isSubscriptionSuccessful(applicationName, apiStoreRestClient), "Subscription was not successful");
     }
 
     @Test
     public void testSubscriptionForRestrictedApiCreatedByTenant() throws APIManagerIntegrationTestException {
 
-        apiProvider = TENANT_LOGIN_ADMIN_USERNAME;
-        apiName = "PhoneVerificationOptionalAdd";
-        apiContext = "/phoneverifyOptionaladd";
+        apiProvider = TENANT_CREATOR_PUBLISHER_USERNAME + "@" + TENANT_DOMAIN;
+        apiName = "testSubscriptionForRestrictedApiCreatedByTenantApi";
+        apiContext = "/testSubscriptionForRestrictedApiCreatedByTenant";
         apiVersion = "1.0.0";
         tierCollection = "Silver";
-        applicationName = "app1";
+        applicationName = "testSubscriptionForRestrictedApiCreatedByTenantApp";
 
         try {
             if (!isRoleCreated(FIRST_ROLE)) {
@@ -166,41 +188,52 @@ public class ApiSubscriptionTestCases extends ScenarioTestBase {
             }
 
             if (isApplicationCreated(applicationName, tenantApiStoreRestClient)) {
-                verifyResponse(deleteApplication(applicationName,tenantApiStoreRestClient));
+                verifyResponse(deleteApplication(applicationName, tenantApiStoreRestClient));
             }
 
-            if (isApiCreated(apiName,apiPublisherRestClient)) {
-                verifyResponse(deleteApi(apiName, apiVersion, apiProvider,apiPublisherRestClient));
+            if (isApiCreated(apiName, apiPublisherRestClient)) {
+                verifyResponse(deleteApi(apiName, apiVersion, apiProvider, apiPublisherRestClient));
             }
 
-            if (isApiCreated(apiName,tenantApiPublisherRestClient)) {
-                verifyResponse(deleteApi(apiName, apiVersion, apiProvider,tenantApiPublisherRestClient));
+            if (isApiCreated(apiName, tenantApiPublisherRestClient)) {
+                verifyResponse(deleteApi(apiName, apiVersion, apiProvider, tenantApiPublisherRestClient));
             }
 
             verifyResponse(createRestrictedApi(tenantApiPublisherRestClient));
             verifyResponse(publishApi(apiProvider, apiName, apiVersion, tenantApiPublisherRestClient));
-            assertTrue(isApiCreated(apiName,tenantApiPublisherRestClient), "Api was not created");
+            assertTrue(isApiCreated(apiName, tenantApiPublisherRestClient), "Api was not created");
 
             createUser(tempUsername, tempPassword, new String[]{FIRST_ROLE}, TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
-            APIStoreRestClient userApiStoreClient = new APIStoreRestClient(DEFAULT_STORE_URL);
-            userApiStoreClient.login(tempUsername+"@"+TENANT_DOMAIN,tempPassword);
+             tenantApiStoreRestClient = new APIStoreRestClient(DEFAULT_STORE_URL);
+            tenantApiStoreRestClient.login(tempUsername+"@"+TENANT_DOMAIN,tempPassword);
 
             verifyResponse(createApplication(applicationName, "", APIMIntegrationConstants.APPLICATION_TIER
-                    .UNLIMITED, userApiStoreClient));
+                    .UNLIMITED, tenantApiStoreRestClient));
 
-            assertTrue(isApplicationCreated(applicationName, userApiStoreClient));
+            assertTrue(isApplicationCreated(applicationName, tenantApiStoreRestClient));
 
+            verifyResponse(subscribeToApplication(apiName, apiVersion, apiProvider, applicationName,
+                    tenantApiStoreRestClient));
 
-            verifyResponse(subscribeToApplication(apiName, apiVersion, apiProvider, applicationName, userApiStoreClient));
-
-            assertTrue(isSubscriptionSuccessful(applicationName, userApiStoreClient), "Subscription was not successful");
+            assertTrue(isSubscriptionSuccessful(applicationName, tenantApiStoreRestClient), "Subscription was not successful");
 
         } catch (Exception e) {
             throw new APIManagerIntegrationTestException("Failed to run subscription for restricted api " +
                     "created by tenant test case", e);
         }
-
     }
+//
+//    @Test
+//    private void testSusbscriptionToPublicApiCreatedByTenant() {
+//
+//        apiProvider = TENANT_LOGIN_ADMIN_USERNAME;
+//        apiName = "PhoneVerificationOptionalAdd";
+//        apiContext = "/phoneverifyOptionaladd";
+//        apiVersion = "1.0.0";
+//        tierCollection = "Silver";
+//        applicationName = "app1";
+//
+//    }
 
     private void createRoles(String roleName, UserManagementClient client) throws RemoteException,
             UserAdminUserAdminException {
@@ -319,7 +352,7 @@ public class ApiSubscriptionTestCases extends ScenarioTestBase {
         return apiPublisherRestClient.addAPI(apiRequest);
     }
 
-    private boolean isApiCreated(String apiName,APIPublisherRestClient client) throws APIManagerIntegrationTestException {
+    private boolean isApiCreated(String apiName, APIPublisherRestClient client) throws APIManagerIntegrationTestException {
 
         HttpResponse api = client.getAllAPIs();
         verifyResponse(api);
@@ -346,12 +379,18 @@ public class ApiSubscriptionTestCases extends ScenarioTestBase {
     @AfterTest(alwaysRun = true)
     public void destroy() throws Exception {
 
-        deleteApplication(applicationName,apiStoreRestClient);
-        deleteApi(apiName, apiVersion, apiProvider,apiPublisherRestClient);
-        deleteApi(apiName, apiVersion, apiProvider,tenantApiPublisherRestClient);
+        deleteApplication(applicationName, apiStoreRestClient);
+        deleteApplication(applicationName, tenantApiStoreRestClient);
+        deleteApi(apiName, apiVersion, apiProvider, apiPublisherRestClient);
+        deleteApi(apiName, apiVersion, apiProvider, tenantApiPublisherRestClient);
         if (isRoleCreated(FIRST_ROLE)) {
             deleteRole(FIRST_ROLE, tenantUserManagementClient);
         }
+        deleteUser(TENANT_SUBSCRIBER_USERNAME, TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
+        deleteUser(TENANT_CREATOR_PUBLISHER_USERNAME, TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
+
+        deleteUser(SUBSCRIBER_USERNAME, ADMIN_LOGIN_USERNAME, ADMIN_LOGIN_PW);
+        deleteUser(CREATOR_PUBLISHER_USERNAME, ADMIN_LOGIN_USERNAME, ADMIN_LOGIN_PW);
         deleteUser(tempUsername, TENANT_LOGIN_ADMIN_USERNAME, TENANT_ADMIN_PW);
 //        deleteTenant(TENANT_DOMAIN);
     }

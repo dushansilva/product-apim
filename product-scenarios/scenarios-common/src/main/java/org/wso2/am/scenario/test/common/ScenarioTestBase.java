@@ -62,7 +62,9 @@ public class ScenarioTestBase {
     public static final String PUBLISHER_URL = "PublisherUrl";
     public static final String STORE_URL = "StoreUrl";
     public static final String KEYAMANAGER_URL = "keyManagerUrl";
-    protected static String resourceLocation = System.getProperty("framework.resource.location");
+//    protected static String resourceLocation = System.getProperty("framework.resource.location");
+    protected static String resourceLocation = "/Users/dushansilva/projects-wso2/product-apim/product-scenarios/scenarios-common/src" +
+            "/main/resources";
 
     public ScenarioTestBase() {
         setup();
@@ -184,20 +186,6 @@ public class ScenarioTestBase {
         }
     }
 
-    public void createUserWithPublisherAndCreatorRole(String username, String password, String adminUsername,
-                                                      String adminPassword) throws APIManagementException {
-        UserManagementClient userManagementClient = null;
-        try {
-            userManagementClient = getRemoteUserManagerClient(adminUsername, adminPassword);
-            userManagementClient
-                    .addUser(username, password, new String[] { ScenarioTestConstants.CREATOR_ROLE,
-                            ScenarioTestConstants.PUBLISHER_ROLE }, username);
-        } catch (Exception e) {
-            throw new APIManagementException("Unable to create user with publisher and creator role " + username, e);
-        }
-
-    }
-
     public void createUserWithPublisherRole(String username, String password, String adminUsername,
             String adminPassword) throws APIManagementException {
         UserManagementClient userManagementClient = null;
@@ -207,6 +195,20 @@ public class ScenarioTestBase {
                     .addUser(username, password, new String[] { ScenarioTestConstants.PUBLISHER_ROLE }, username);
         } catch (Exception e) {
             throw new APIManagementException("Unable to create user with publisher role " + username, e);
+        }
+
+    }
+
+    public void createUserWithPublisherAndCreatorRole(String username, String password, String adminUsername,
+                                            String adminPassword) throws APIManagementException {
+        UserManagementClient userManagementClient = null;
+        try {
+            userManagementClient = getRemoteUserManagerClient(adminUsername, adminPassword);
+            userManagementClient
+                    .addUser(username, password, new String[] { ScenarioTestConstants.CREATOR_ROLE,
+                            ScenarioTestConstants.PUBLISHER_ROLE }, username);
+        } catch (Exception e) {
+            throw new APIManagementException("Unable to create user with publisher and creator role " + username, e);
         }
 
     }
